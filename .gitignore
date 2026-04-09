@@ -1,0 +1,6 @@
+.env
+__pycache__/
+*.py[cod]
+data/sniff.db*
+data/reports/
+.DS_Store

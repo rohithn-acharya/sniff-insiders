@@ -29,6 +29,7 @@ import agents.edgar_agent       as edgar_agent
 import agents.insider_agent     as insider_agent
 import agents.news_agent        as news_agent
 import agents.correlation_agent as correlation_agent
+import reports.report_generator as report_generator
 
 AGENT = "ORCHESTRATOR"
 
@@ -58,6 +59,10 @@ def run_pipeline(tickers: list[str], days: int = 30) -> dict:
     # ── Phase 4: Correlate & score ─────────────────────────────────────────
     log(AGENT, "Phase 4: Correlation Agent — synthesizing signals", "info")
     final_signals = correlation_agent.run(tickers, insider_results, news_result)
+
+    # ── Phase 5: Generate reports ──────────────────────────────────────────────
+    log(AGENT, "Phase 5: Report Generator — saving outputs", "info")
+    report_generator.run(final_signals)
 
     elapsed = (datetime.now() - start).total_seconds()
     log(AGENT, f"Pipeline COMPLETE in {elapsed:.1f}s", "success")
