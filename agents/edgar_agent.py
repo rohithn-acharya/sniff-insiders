@@ -97,9 +97,12 @@ def fetch_form4_filings(ticker: str) -> list[dict]:
             break  # filings are newest-first; stop when past window
 
         acc_clean = acc.replace("-", "")
+        # primaryDocument sometimes has an XSLT prefix (e.g. xslF345X06/file.xml)
+        # which returns an HTML render. Strip it to get the raw XML.
+        raw_doc = doc.split("/")[-1] if "/" in doc else doc
         filing_url = (
             f"https://www.sec.gov/Archives/edgar/data/"
-            f"{int(cik)}/{acc_clean}/{doc}"
+            f"{int(cik)}/{acc_clean}/{raw_doc}"
         )
         parsed = _parse_form4(filing_url, ticker, cik, date)
         if parsed:

@@ -7,6 +7,7 @@ Run with: python -m pytest tests/ -v
 import pytest
 import sys
 import os
+from datetime import datetime, timedelta
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from data.db import init_db, insert_insider_transaction, get_recent_insider_txns
@@ -29,10 +30,11 @@ def setup_db(tmp_path, monkeypatch):
 
 
 def test_insert_and_retrieve_txn():
+    tx_date = (datetime.now() - timedelta(days=5)).strftime("%Y-%m-%d")
     tx = {
         "ticker": "TEST", "cik": "0001234567",
         "filer_name": "John CEO", "role": "CEO",
-        "transaction_date": "2025-01-15", "filed_date": "2025-01-16",
+        "transaction_date": tx_date, "filed_date": tx_date,
         "transaction_type": "P", "shares": 10000,
         "price_per_share": 50.0, "total_value": 500000,
         "shares_owned_after": 60000, "form_url": "https://example.com/form4",

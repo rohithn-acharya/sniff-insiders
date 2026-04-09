@@ -20,7 +20,7 @@ EDGAR_RATE_LIMIT_SECS = 0.12  # SEC allows ~10 req/sec; stay safe at ~8
 
 # ─── Anthropic (AI correlation layer) ────────────────────────────────────────
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-AI_MODEL = "claude-sonnet-4-20250514"
+AI_MODEL = "claude-sonnet-4-6"
 
 # ─── News feeds (free, no key needed) ────────────────────────────────────────
 NEWS_FEEDS = [

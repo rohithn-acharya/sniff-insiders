@@ -11,19 +11,27 @@ Produces a composite score per ticker and a plain-English rationale.
 """
 
 import json
-import requests
+import os
 from typing import Optional
 
-from config.settings import (
-    ANTHROPIC_API_KEY, AI_MODEL,
-    WEIGHTS, ALERT_SCORE_THRESHOLD
-)
+import anthropic
+from dotenv import load_dotenv
+
+from config.settings import AI_MODEL, WEIGHTS, ALERT_SCORE_THRESHOLD
 from data.db import insert_signal, get_latest_signals
 from utils.logger import log, log_signal
 
 AGENT = "CORRELATOR"
 
-ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
+
+def _get_client() -> Optional[anthropic.Anthropic]:
+    """Build Anthropic client, reloading .env each time so the key is always fresh."""
+    load_dotenv(override=True)
+    api_key = os.getenv("ANTHROPIC_API_KEY", "")
+    if not api_key:
+        log(AGENT, "ANTHROPIC_API_KEY not set in .env — falling back to rule-based scoring", "warn")
+        return None
+    return anthropic.Anthropic(api_key=api_key)
 
 
 # ── AI reasoning call ─────────────────────────────────────────────────────────
@@ -33,14 +41,13 @@ def ai_synthesize(ticker: str, insider_data: dict, news_items: list, geo_impact:
     Call Claude to synthesize all signals into a human-readable analysis.
     Returns {"score": float, "direction": str, "reasoning": str}
     """
-    if not ANTHROPIC_API_KEY:
-        log(AGENT, "No ANTHROPIC_API_KEY — skipping AI synthesis", "warn")
+    client = _get_client()
+    if client is None:
         return _rule_based_fallback(ticker, insider_data, geo_impact)
 
-    # Build the prompt
     insider_summary = insider_data.get("summary", "No insider data")
     insider_score   = insider_data.get("score", 0.0)
-    insider_txns    = insider_data.get("raw_txns", [])[:5]  # last 5
+    insider_txns    = insider_data.get("raw_txns", [])[:5]
 
     news_summary = "\n".join([
         f"  [{n['sentiment']:+.2f}] {n['title'][:100]}"
@@ -75,25 +82,17 @@ Respond ONLY with valid JSON (no markdown, no preamble):
   "reasoning": "<2-3 sentence explanation>"
 }}"""
 
-    headers = {
-        "x-api-key":         ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-        "content-type":      "application/json",
-    }
-    payload = {
-        "model":      AI_MODEL,
-        "max_tokens": 300,
-        "messages":   [{"role": "user", "content": prompt}],
-    }
-
+    log(AGENT, f"Calling Claude ({AI_MODEL}) for {ticker}…", "info")
     try:
-        r = requests.post(ANTHROPIC_URL, headers=headers, json=payload, timeout=30)
-        r.raise_for_status()
-        content = r.json()["content"][0]["text"].strip()
-        # Strip any accidental markdown fences
+        message = client.messages.create(
+            model=AI_MODEL,
+            max_tokens=300,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        content = message.content[0].text.strip()
         content = content.replace("```json", "").replace("```", "").strip()
         result  = json.loads(content)
-        log(AGENT, f"AI synthesis for {ticker}: {result['direction']} ({result['score']:.2f})")
+        log(AGENT, f"AI synthesis for {ticker}: {result['direction']} (score={result['score']:.2f})", "success")
         return result
     except Exception as e:
         log(AGENT, f"AI synthesis failed for {ticker}: {e}", "error")
